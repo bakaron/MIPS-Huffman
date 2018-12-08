@@ -1,0 +1,585 @@
+.data
+filename: .asciiz "TEXT.txt" #file to read containing message to be coded
+filename2: .asciiz "Huffman_tree.txt" #file to write in destribution and coded text
+filename3: .asciiz "OUT.txt" #file to store huffman tree
+text1: 	   .asciiz " String wejsciowy: "
+text2:	  .asciiz " Zliczanie wystapien znakow format znak#liczba :: "
+text3: 	.asciiz "\n Kodowanie Huffmana dla znaków -format znak,kod::: "
+text5: .asciiz "Tekst odkodowany:  "
+.align 2
+
+line: .space 1024#this is the the original text
+information: .space 5120#huffman tree structure
+codepath: .space 1024#temporary help
+huffman_code_array: .space 2048#list of every character and 
+write_in_file: .space 1024 # this is coded file cant be longer than original
+#treestruct							
+#		1 byte for character				| ASCII_sign  | IS_LEAF | IS_ROOT | empty | VALUE | L-CHILD | R-CHILD | PARENT |
+#		1 byte for is_leaf				|      +0     |   +1	|    +2	  |   +3  |   +4  |   +8    |   +12   |  +16   |
+#		1 byte for is_root				
+#		4bytes for int
+#		12bytes for parent l-child and r-child
+#
+.text
+.globl main
+
+main:
+
+
+openfile:
+
+	li $v0,13 #$v0 contains file descriptor 
+	la $a0,filename
+	li $a1,0 # 0-read//1-write
+	li $a2,0 # mode-ignored
+	syscall
+	move $s7,$v0 #save descriptor ramka stosu???
+readfile:
+	
+	li $v0,14
+	la $a0,($s7)# load file descriptor
+	la $a1,line#adress of input buffer
+	li $a2,1000#maximum number of charactes to read
+	syscall
+closefile:
+
+	li $v0,16
+	la $a0,($a0)# !!!!!!!!!!!!chceck if legal descriptor again
+	syscall
+printfile:
+	li $v0,4
+	la $a0,text1
+	syscall
+	la $s1,line
+	la $a0,($s1)
+	syscall
+	la $v0,11
+	li $a0,'\n'
+	syscall
+	li $v0,4
+	la $a0,text2
+	syscall
+	
+#structure contains character symbol and it's quantity in the text q>0
+#iterate through every ascii character and iterate through whole text if it ocurrs increment it's number
+#	
+#O(N^2)
+
+	li $s0,0#escii code value 0..127
+	li $s2,0#target file iterator
+	la $s4,information
+counting_characters:
+	
+	li $s1,0#pointer to target line
+	li $t2,0#number of apearances
+	li $t0,0#iterator 0..endoftext
+	
+	lb $t1,line($t0)#value of character we chcek
+inside_loop:
+	
+	
+	bne $t1,$s0 increment_counter# if not same just pass else number of apearences++
+	addi $t2,$t2,1
+	
+	
+increment_counter:
+	addi $t0,$t0,1
+	lb $t1,line($t0)
+	bnez $t1,inside_loop
+	
+end_of_inside_loop:	#zapisać zapis do linii
+
+
+	blt $t2,1,next_ascii
+#################################
+	
+	sb  $s0,($s4)#save character
+	addi $s4,$s4,1
+	li $t3, 1
+	sb $t3,($s4)#setting is leaf to 1
+	addi $s4,$s4,1#setting is root to 1
+	sb $t3,($s4)
+	addi $s4,$s4,2#go to int
+	sw $t2,($s4)#save int
+	addi $s4,$s4,16#go to next struct
+##############################	
+	
+	
+	
+	############## for preconal check
+	li $v0,11
+	la $a0,($s0)
+	syscall
+	li $v0,11
+	li $a0,'-'
+	syscall
+	li $v0,1
+	la $a0,($t2)
+	syscall
+	
+	li $v0,11
+	li $a0,' '
+	syscall
+	###############
+next_ascii:	
+	addi $s0,$s0,1
+	blt $s0,128,counting_characters
+	
+	
+we_got_destribution:
+	li $v0,4
+	la $a0,text3
+	syscall
+#building treee
+#$s4 -> pointer to end of file
+building_tree:
+
+ #$s4 ma na ostatni
+ 	la $s1,information
+ 	#la $s5,($s1)#current leaf to take
+ 	li $t0,1000000# first value to compare to
+ 	li $t1,0 # number of roots met
+ loop_for_node_left:#jesteśmy na drugim nodzie z n
+ 	
+ 	beq $s1,$s4,all_nodes_1# we meet pointer of end of information
+ 	addi $s2,$s1,2
+ 	lb $t2,($s2)
+ 	beqz $t2,next_node#jeśli nie jest rootem
+ 	addi $t1,$t1,1#is root so count root
+ 	addi $s3,$s1,4
+ 	lw $t2,($s3)
+ 	bge $t2,$t0,next_node
+ 	la $s5,($s1)
+ 	move $t0,$t2
+ 	
+ next_node:
+ 
+ 	addi $s1,$s1,20
+ 	j loop_for_node_left
+ 	
+ all_nodes_1:
+ 	ble $t1,1, tree_is_done
+ 	la $s1,information
+ 	li $t0,1000000
+ 	
+loop_for_node_right:
+ 	
+ 	beq $s1,$s4,all_nodes_2
+ 	#la $s6,($s1)
+ 	beq $s1,$s5, next_node_2
+ 	addi $s2,$s1,2#root
+ 	lb $t2,($s2)
+ 	beqz $t2, next_node_2#jeśli nie jest rootem
+ 	addi $s3,$s1,4
+ 	lw $t2,($s3)
+ 	bge $t2,$t0, next_node_2
+ 	la $s6,($s1)
+ 	move $t0,$t2
+
+ 	
+ next_node_2:
+ 	addi $s1,$s1,20
+ 	j loop_for_node_right
+ 
+ all_nodes_2:
+ #$s5 1 node
+ # $s6 2 node
+ # $s4 new struct
+ 	la $t1,information
+
+parent:
+  	addi $s4,$s4,2# now root
+  	li $t0,1
+  	sb $t0,($s4)
+  	####sums value of both leafes
+  	
+  	la $t2,($s5)#adress of left leaf
+  	addi $t2,$t2,4
+  	lw $t4,($t2)#load value of left leaf
+  	
+  	
+  	la $t3,($s6)#adress of right leaf
+  	addi $t3,$t3,4
+  	lw $t5,($t3)#load value of right leaf
+  	
+  	add $t6,$t5,$t4
+  	addi $s4,$s4,2#point to value
+  	sw $t6,($s4)#save value
+  	
+  	#storing adresses
+  	
+  	addi $s4,$s4,4#l--leaf
+  	la $t2,($s5)
+  	sub $t0,$t2, $t1
+  	sw $t0,($s4)
+ # 	
+  	
+  #	
+  	
+  	addi $s4,$s4,4#R--leaf
+  	la $t2,($s6)
+  	sub $t0,$t2, $t1
+  	sw $t0,($s4)
+  	
+  #	
+  	
+  #	
+  	
+  	subi $s4,$s4,12
+  	
+  	
+  	
+ l_child:
+ 	
+ 	
+ 	
+ 	addi $t5,$s5,2
+ 	li $t0,0#no longer root
+ 	sb $t0,($t5)
+ 	addi $t5,$s5,16
+ 	sub $t0,$s4,$t1#store 
+ 	sw $t0,($t5)
+ 	
+ 	li $v0,1
+  	lw $a0,($t5)
+  	#syscall
+ 	
+ r_child:
+ 	
+ 	addi $t6,$s6,2
+ 	li $t0,0
+ 	sb $t0,($t6)
+ 	
+ 	addi $t6,$s6,16
+ 	sub $t0,$s4,$t1#store 
+ 	sw $t0,($t6)
+ branch_done:
+ 	add $s4,$s4,20
+ 	j building_tree
+ 
+
+ tree_is_done:
+
+
+
+	la $s0,information#offset
+	la $s1,information
+	subi $t3,$s4,20#points to root now
+	
+ 
+ 	la $s7,codepath# array where we store our coding of form A0100B1
+ 	la $t7,huffman_code_array#poinetr to coding
+loop_searching_for_leafs:
+
+	beq $s1,$s4,code_is_written#if iterator is at the root
+	addi $t0,$s1,1#we now point to is_leaf
+	lb $t1,($t0)
+	bne $t1,1,next_leaf# if not leaf
+	lb $a0,($s1)#cout character
+	##################################
+	sb $a0,($t7)#save character after it nums
+	addi $t7,$t7,1#now first 0or 1
+	#################################
+	li $v0,11
+	syscall
+	
+	la $s2,($s1)
+creating_path_for_leaf:
+	sub $t2,$s2,$s0#distance of node from offset
+	sw $t2,($s7)#save it
+	addi $s7,$s7,4#move pointer of codepath
+	
+	addi $s3,$s2,16#point to parent
+	lw $t1,($s3)#get the parent
+	
+#	
+	la $a0,($t1)
+	li $v0,1
+	#syscall
+#	
+	add $s2,$t1,$s0#full adsres
+	bne $s2,$t3,creating_path_for_leaf#do the same for parent until root
+	
+
+
+
+
+
+
+
+we_have_path:
+
+	la $s5,($t3)#copy adress of root to $s5
+	
+	la $s6,codepath#offset of our code when reading from the end points to last struct
+
+start_from_root:
+	
+	subi $s7,$s7,4#s7 is now pointer to code path that stores distance of node from root
+	blt $s7,$s6,next_leaf
+	addi $t4,$s5,8# points to l-leaf of 'root' node
+	lw $t0,($s7)# the distance of node
+	lw $t1,($t4)# the distance of l child in 'root'
+	beq $t0,$t1,is_left_node
+	
+is_right_node:
+
+	li $v0,11
+	li $a0,'1'
+	syscall
+	sb $a0,($t7)
+	addi $t7,$t7,1
+	j next_node_code
+	##########
+	#########
+ 	##########wstawić instrukce zapisu
+	
+is_left_node:
+
+	##########
+	#########
+ 	##########wstawić instrukce zapisu
+	li $v0,11
+	li $a0,'0'
+	syscall
+	sb $a0,($t7)
+	addi $t7,$t7,1
+next_node_code:
+	
+  	add $s5,$t0,$s0#load new root from las node distance + offset
+  	j start_from_root
+
+
+	
+
+	
+next_leaf:
+	li $a0,'%'#                                                                                      !!!!!!!!!!!!!! change to 0
+	sb $a0,($t7)
+	add $t7,$t7,1############################!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! chceck later
+ 	addi $s1,$s1,20
+ 	la $s7,codepath
+ 	j loop_searching_for_leafs 
+ 
+ code_is_written:
+ 	
+ 	
+ 	
+ 
+ 
+ ##not off to code the text
+ la $s0,line
+  li $a0,'>'
+  li $v0,11
+  #syscall
+ 
+  la $a0,huffman_code_array
+  li $v0,4
+  #syscall
+  
+
+  li $a0,'\n'
+  li $v0,11
+  syscall
+
+
+
+	la $s0,line
+	la $s1,write_in_file
+	la $s2,huffman_code_array
+	li $t5,31#lentgh of jump
+finding_word_in_code:
+	lb $t0,($s0)
+	beqz $t0,end
+        la $s2,huffman_code_array
+        
+searching_for__in_code:
+	lb $t1,($s2)
+	addi $s2,$s2,1
+	
+	bne $t1,$t0,searching_for__in_code
+we_have_character_in_huffman_code_array:
+	move $a0,$t1
+	li $v0,11
+	#syscall##can write character here note now $s2 is poiting to first o or 1                                 -syscall snaków wczytywania arko zad
+	li $t3,0#our word for bits
+get_coding_for_character_found:
+	lb $t1,($s2)
+	beq $t1,'%',we_have_full_code_of__
+	move $a0,$t1
+	li $v0,11
+	#syscall##
+	 beq $t1,'1',got_one
+ got_zero:
+ 	li $t2,0
+ 	j shift_left
+ got_one:
+ 	li $t2,1
+ shift_left:
+ 	####
+ 	lw $t4,($s1)
+ 	sllv $t3,$t2,$t5
+ 	or $t4,$t4,$t3
+ 	sw $t4,($s1)
+ 	subi $t5,$t5,1
+	## using s0-s1-s2-t0-t1--
+	
+	move $a0,$t1######only print
+	li $v0,11
+	#syscall
+	
+	addi $s2,$s2,1
+	#######
+	bge $t5,0,get_coding_for_character_found######changed
+	li $t5,31
+	addi $s1,$s1,4
+	######
+	j get_coding_for_character_found
+we_have_full_code_of__:
+	move $a0,$t3
+	li $v0,1
+	#syscall
+	addi $s2,$s2,1#we wereo on 5 get to the character of next ale w sumie na chuj
+	
+next_character_from_line:	
+	addi $s0,$s0,1
+	j finding_word_in_code
+
+
+end:
+li $v0,1
+la $s1,write_in_file
+addi $s1,$s1,3
+lb $a0,($s1)
+
+li $v0,1
+lw $a0,write_in_file
+#syscall
+
+
+
+
+openfile2:#closing information that is structure with huffman tree
+    li $v0, 13
+    la $a0, filename3#stores name of .txt to write
+    li $a1, 1
+    li $a2, 0
+    syscall  # File descriptor gets returned in $v0
+writefile:
+    move $a0, $v0  # Syscall 15 requieres file descriptor in $a0
+    li $v0, 15
+    la $a1,write_in_file
+   # la $a2,($s4)
+    
+    la $a3,write_in_file
+     li $a2,1024##!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! uwaga przy zapisywaniu drzewa!!!!!!
+    syscall
+    
+    
+closefile2:
+    li $v0, 16  # $a0 already has the file descriptor
+    syscall
+
+
+
+
+	li $v0,4
+	la $a0,text5
+	syscall
+
+#syscall
+la $s4,information
+finding_root_for_decoding:
+
+	addi $t0,$s4,2
+	lb $t1,($t0)
+	addi $s4,$s4,20
+bne $t1,1,finding_root_for_decoding#seatching for root
+	subi $s4,$s4,20
+	addi $t1,$s4,4
+	lw $s7,($t1)
+	move $a0,$t2
+	li $v0,1
+	#syscall
+got_root_2:
+
+	la $s0,information#offset again for decoding
+#s7 is number of characters
+la $s3,($s4)#movable parent
+decode_loop_in_coded_file:
+
+	la $s2,write_in_file
+	lw $t0,($s2)
+	li $t7,1#mask
+	li $t6,31
+loop_shifting:
+	lw $t0,($s2)
+	srlv $t1,$t0,$t6#not affecting original word
+	and $t2,$t1,$t7
+	beq $t2,1,one
+zero:	
+	addi $t3,$s3,8
+	j going_trough_tree
+one:##############!!!!!!!!!!!!!!!! czy moge tak bez skoku chyba tak
+	addi $t3,$s3,12
+going_trough_tree:
+	lw $t3,($t3)
+	add $s3,$t3,$s0#add distance of l or r child of last to get this node that now is a parent
+	addi $t4,$s3,1
+	lb $t5,($t4)
+	bne $t5,1,next_bit
+	subi $s7,$s7,1# now we need to find one less
+	lb $a0,($s3)
+	li $v0,11
+	syscall
+	la $s3,($s4)
+	beqz $s7,uncoded
+next_bit:
+	subi $t6,$t6,1
+	bge $t6,0,loop_shifting
+	li $t6,31### add save for current word
+	addi $s2,$s2,4
+	#lw $t0,($s2)
+	j loop_shifting
+
+
+uncoded:
+
+
+
+
+
+ ##### just checking
+ 
+openfile3:#closing information that is structure with huffman tree
+    li $v0, 13
+    la $a0, filename2#stores name of .txt to write
+    li $a1, 1
+    li $a2, 0
+    syscall  # File descriptor gets returned in $v0
+writefile2:
+    move $a0, $v0  # Syscall 15 requieres file descriptor in $a0
+    li $v0, 15
+    la $a1,information
+    la $a2,($s4)
+    
+    la $a3,information
+    subu $a2,$a2,$a3##!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! uwaga przy zapisywaniu drzewa!!!!!!
+    syscall
+    
+    
+closefile3:
+    li $v0, 16  # $a0 already has the file descriptor
+    syscall
+
+
+epilog:
+	#li $v0,4
+	#la $s4,information
+	##addi $s7,$s4,4
+	#la $a0,($s4)
+	##li $a1,100
+	
+	syscall
+	li $v0,10
+	syscall
