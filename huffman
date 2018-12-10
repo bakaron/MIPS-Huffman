@@ -8,11 +8,11 @@ text3: 	.asciiz "\n Kodowanie Huffmana dla znaków -format znak,kod::: "
 text5: .asciiz "Tekst odkodowany:  "
 .align 2
 
-line: .space 1024#this is the the original text
+line: .space 10240#this is the the original text
 information: .space 5120#huffman treee structure
 codepath: .space 1024#temporary help
-huffman_code_array: .space 2048#list of every character and 
-write_in_file: .space 1024 # this is coded file cant be longer than original
+huffman_code_array: .space 32896#list of every character and 
+write_in_file: .space 10240 # this is coded file cant be longer than original
 #treestruct							
 #		1 byte for character				| ASCII_sign  | IS_LEAF | IS_ROOT | empty | VALUE | L-CHILD | R-CHILD | PARENT |
 #		1 byte for is_leaf				|      +0     |   +1	|    +2	  |   +3  |   +4  |   +8    |   +12   |  +16   |
@@ -39,7 +39,7 @@ readfile:
 	li $v0,14
 	la $a0,($s7)# load file descriptor
 	la $a1,line#adress of input buffer
-	li $a2,1000#maximum number of charactes to read
+	li $a2,10240#maximum number of charactes to read
 	syscall
 closefile:
 
@@ -494,7 +494,7 @@ writefile:
    # la $a2,($s4)
     
     la $a3,write_in_file
-     li $a2,1024##!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! uwaga przy zapisywaniu drzewa!!!!!!
+     li $a2,10240##!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! uwaga przy zapisywaniu drzewa!!!!!!
     syscall
     
     
