@@ -9,7 +9,7 @@ text5: .asciiz "Tekst odkodowany:  "
 .align 2
 
 line: .space 1024#this is the the original text
-information: .space 5120#huffman tree structure
+information: .space 5120#huffman treee structure
 codepath: .space 1024#temporary help
 huffman_code_array: .space 2048#list of every character and 
 write_in_file: .space 1024 # this is coded file cant be longer than original
@@ -382,67 +382,89 @@ next_leaf:
   li $v0,11
   syscall
 
-
-
-	la $s0,line
-	la $s1,write_in_file
-	la $s2,huffman_code_array
+coding_paramterers:
+# --$t3 root
+	la $s0,line#to gthrough every node	
+	la $s1,information#offset
+	la $s2,information
+	la $s7,codepath
+	
 	li $t5,31#lentgh of jump
+	la $s4,write_in_file
+	#-----------------used sL0,1,2,3,5,6,7 ---not used $s4 i $t7 i$t6 $t5 ?$t1
 finding_word_in_code:
 	lb $t0,($s0)
 	beqz $t0,end
-        la $s2,huffman_code_array
-        
+	la $s2,information
 searching_for__in_code:
+
 	lb $t1,($s2)
-	addi $s2,$s2,1
+	addi $s2,$s2,20
 	
 	bne $t1,$t0,searching_for__in_code
 we_have_character_in_huffman_code_array:
-	move $a0,$t1
-	li $v0,11
-	#syscall##can write character here note now $s2 is poiting to first o or 1                                 -syscall snaków wczytywania arko zad
-	li $t3,0#our word for bits
-get_coding_for_character_found:
-	lb $t1,($s2)
-	beq $t1,'%',we_have_full_code_of__
-	move $a0,$t1
-	li $v0,11
-	#syscall##
-	 beq $t1,'1',got_one
- got_zero:
- 	li $t2,0
- 	j shift_left
- got_one:
- 	li $t2,1
- shift_left:
- 	####
- 	lw $t4,($s1)
- 	sllv $t3,$t2,$t5
- 	or $t4,$t4,$t3
- 	sw $t4,($s1)
- 	subi $t5,$t5,1
-	## using s0-s1-s2-t0-t1--
+	subi $s2,$s2,20#$s2 is pointer to structre
 	
-	move $a0,$t1######only print
+	lb $a0,($s2)
 	li $v0,11
 	#syscall
+creating_path_for_leaf_2:
+	sub $t2,$s2,$s1#distance of node from offset
+	sw $t2,($s7)#save it
 	
-	addi $s2,$s2,1
-	#######
-	bge $t5,0,get_coding_for_character_found######changed
-	li $t5,31
-	addi $s1,$s1,4
-	######
-	j get_coding_for_character_found
-we_have_full_code_of__:
-	move $a0,$t3
+	addi $s7,$s7,4#move pointer of codepath
+	addi $s3,$s2,16#get parent
+	lw $t1,($s3)#get the parent
+	la $a0,($t1)
 	li $v0,1
 	#syscall
-	addi $s2,$s2,1#we wereo on 5 get to the character of next ale w sumie na chuj
+	add $s2,$t1,$s1#full adsres
+	bne $s2,$t3,creating_path_for_leaf_2#do the same for parent until root
+we_have_path_2:
+	la $s5,($t3)#copy adress of root to $s5
+	la $s6,codepath#offset of our code when reading from the end points to last struct
+
+	
+start_from_root_2:
+	subi $s7,$s7,4#s7 is now pointer to code path that stores distance of node from root
+	blt $s7,$s6,next_character_from_line
+	addi $t4,$s5,8# points to l-leaf of 'root' node
+	lw $t0,($s7)# the distance of node
+	lw $t1,($t4)# the distance of l child in 'root'
+	beq $t0,$t1,is_left_node_2	
+	
+	is_right_node_2:
+	li $v0,11
+	li $a0,'1'#setting bit to move
+	#syscall
+	li $t6,1
+	j shift_left
+	
+	is_left_node_2:
+	li $v0,11
+	li $a0,'0'
+	#syscall
+	li $t6,0#setting bit to move
+	
+shift_left:
+	lw $t7,($s4)#get word from text coded and code it
+	sllv $t6,$t6,$t5
+	or $t7,$t7,$t6
+	sw $t7,($s4)
+	subi $t5,$t5,1
+	bge $t5,0,next_node_code_2
+	li $t5,31
+	addi $s4,$s4,4
+	
+next_node_code_2:	
+	add $s5,$t0,$s1#load new root from las node distance + offset
+  	j start_from_root_2
+	
+	
 	
 next_character_from_line:	
 	addi $s0,$s0,1
+	la $s7,codepath
 	j finding_word_in_code
 
 
@@ -583,3 +605,4 @@ epilog:
 	syscall
 	li $v0,10
 	syscall
+
